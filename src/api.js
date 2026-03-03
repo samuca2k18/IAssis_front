@@ -10,7 +10,11 @@ async function request(path, options = {}) {
   if (res.status === 204) return null;
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'Erro na requisição');
+    const detail = err.detail;
+    const msg = Array.isArray(detail)
+      ? detail.map((e) => `${e.loc?.slice(-1)[0]}: ${e.msg}`).join(', ')
+      : (detail || 'Erro na requisição');
+    throw new Error(msg);
   }
   return res.json();
 }

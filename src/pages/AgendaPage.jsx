@@ -37,13 +37,23 @@ export default function AgendaPage() {
     const openNew = () => { setForm(EMPTY); setModal(true); };
 
     const save = async () => {
+        if (!form.titulo.trim()) return alert('Título é obrigatório');
+        if (!form.data_hora) return alert('Data e hora são obrigatórias');
         const data = { ...form };
+        // Garantir formato ISO completo (datetime-local não inclui segundos)
+        if (data.data_hora && data.data_hora.length === 16) {
+            data.data_hora = data.data_hora + ':00';
+        }
         if (!data.descricao) delete data.descricao;
         if (data.cliente_id) data.cliente_id = parseInt(data.cliente_id);
         else delete data.cliente_id;
-        await agendaApi.criar(data);
-        setModal(false);
-        load();
+        try {
+            await agendaApi.criar(data);
+            setModal(false);
+            load();
+        } catch (e) {
+            alert('Erro: ' + e.message);
+        }
     };
 
     const concluir = async (id) => {
