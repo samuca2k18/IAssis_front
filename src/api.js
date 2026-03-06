@@ -1,5 +1,12 @@
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
+/**
+ * Realiza uma requisição HTTP para a API.
+ * 
+ * @param {string} path - Caminho da API (ex: '/clientes')
+ * @param {RequestInit} [options={}] - Opções opcionais da requisição via Fetch API
+ * @returns {Promise<any>} Response json
+ */
 async function request(path, options = {}) {
   const url = `${API_BASE}${path}`;
   const config = {

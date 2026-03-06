@@ -1,154 +1,101 @@
-import { useState, useEffect } from 'react';
-import { clientesApi } from '../api';
-import Modal from '../components/Modal';
-
-const EMPTY = { nome: '', telefone: '', cidade: '', cpf_cnpj: '', origem: '', tipo_pessoa: 'fisica' };
+import { useState } from 'react';
+import { useClientes, useDeleteCliente } from '../hooks/useClientes';
+import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import ClienteFormModal from './clientes/ClienteFormModal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Users, Pencil, Trash2, Plus } from 'lucide-react';
 
 export default function ClientesPage() {
-    const [clientes, setClientes] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const { data: clientes = [], isLoading: loading } = useClientes();
+    const deleteMutation = useDeleteCliente();
+
     const [modal, setModal] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [form, setForm] = useState(EMPTY);
 
-    const load = () => {
-        setLoading(true);
-        clientesApi.listar().then(setClientes).finally(() => setLoading(false));
-    };
+    const openNew = () => { setEditing(null); setModal(true); };
+    const openEdit = (c) => { setEditing(c); setModal(true); };
 
-    useEffect(load, []);
-
-    const openNew = () => { setEditing(null); setForm(EMPTY); setModal(true); };
-    const openEdit = (c) => { setEditing(c); setForm({ nome: c.nome, telefone: c.telefone, cidade: c.cidade, cpf_cnpj: c.cpf_cnpj || '', origem: c.origem || '', tipo_pessoa: c.tipo_pessoa }); setModal(true); };
-
-    const save = async () => {
-        if (editing) {
-            await clientesApi.atualizar(editing.id, form);
-        } else {
-            await clientesApi.criar(form);
-        }
-        setModal(false);
-        load();
-    };
-
-    const remove = async (id) => {
+    const remove = (id) => {
         if (!confirm('Excluir este cliente?')) return;
-        await clientesApi.deletar(id);
-        load();
+        deleteMutation.mutate(id);
     };
-
-    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
     return (
         <>
-            <div className="page-header">
-                <div className="page-header-row">
-                    <div>
-                        <h2>Clientes</h2>
-                        <p>Gerencie sua base de clientes</p>
-                    </div>
-                    <button className="btn btn-primary" onClick={openNew}>+ Novo Cliente</button>
-                </div>
-            </div>
-            <div className="page-content">
+            <PageHeader
+                title="Clientes"
+                description="Gerencie sua base de clientes"
+                action={
+                    <Button onClick={openNew} className="gap-2">
+                        <Plus className="h-4 w-4" /> Novo Cliente
+                    </Button>
+                }
+            />
+
+            <div className="px-8 pb-8">
                 {loading ? (
-                    <div className="loading-spinner" />
-                ) : clientes.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="icon">👤</div>
-                        <h3>Nenhum cliente cadastrado</h3>
-                        <p>Clique em "+ Novo Cliente" para começar</p>
+                    <div className="flex items-center justify-center p-24">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
                     </div>
+                ) : clientes.length === 0 ? (
+                    <EmptyState
+                        icon={<Users className="h-16 w-16 text-muted-foreground opacity-50" />}
+                        title="Nenhum cliente cadastrado"
+                        description='Clique em "+ Novo Cliente" para começar'
+                    />
                 ) : (
-                    <div className="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Telefone</th>
-                                    <th>Cidade</th>
-                                    <th>CPF/CNPJ</th>
-                                    <th>Origem</th>
-                                    <th>Tipo</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <div className="rounded-md border border-border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Telefone</TableHead>
+                                    <TableHead>Cidade</TableHead>
+                                    <TableHead>CPF/CNPJ</TableHead>
+                                    <TableHead>Origem</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead className="text-right">Ações</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {clientes.map((c) => (
-                                    <tr key={c.id}>
-                                        <td style={{ fontWeight: 600 }}>{c.nome}</td>
-                                        <td>{c.telefone}</td>
-                                        <td>{c.cidade}</td>
-                                        <td>{c.cpf_cnpj || '—'}</td>
-                                        <td>{c.origem || '—'}</td>
-                                        <td><span className="badge badge-accent">{c.tipo_pessoa}</span></td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 6 }}>
-                                                <button className="btn btn-secondary btn-sm" onClick={() => openEdit(c)}>✏️ Editar</button>
-                                                <button className="btn btn-danger btn-sm" onClick={() => remove(c.id)}>🗑️</button>
+                                    <TableRow key={c.id}>
+                                        <TableCell className="font-medium">{c.nome}</TableCell>
+                                        <TableCell>{c.telefone}</TableCell>
+                                        <TableCell>{c.cidade}</TableCell>
+                                        <TableCell className="text-muted-foreground">{c.cpf_cnpj || '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground">{c.origem || '—'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                                                {c.tipo_pessoa}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button variant="secondary" size="sm" onClick={() => openEdit(c)} className="gap-1.5 h-8">
+                                                    <Pencil className="h-3.5 w-3.5" /> Editar
+                                                </Button>
+                                                <Button variant="destructive" size="sm" onClick={() => remove(c.id)} className="h-8 px-2">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 ))}
-                            </tbody>
-                        </table>
+                            </TableBody>
+                        </Table>
                     </div>
                 )}
             </div>
 
-            <Modal
+            <ClienteFormModal
                 open={modal}
                 onClose={() => setModal(false)}
-                title={editing ? 'Editar Cliente' : 'Novo Cliente'}
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
-                        <button className="btn btn-primary" onClick={save}>Salvar</button>
-                    </>
-                }
-            >
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Nome *</label>
-                        <input className="form-control" value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Nome completo" />
-                    </div>
-                    <div className="form-group">
-                        <label>Telefone *</label>
-                        <input className="form-control" value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder="(85) 9xxxx-xxxx" />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Cidade *</label>
-                        <input className="form-control" value={form.cidade} onChange={(e) => set('cidade', e.target.value)} placeholder="Fortaleza/CE" />
-                    </div>
-                    <div className="form-group">
-                        <label>CPF/CNPJ</label>
-                        <input className="form-control" value={form.cpf_cnpj} onChange={(e) => set('cpf_cnpj', e.target.value)} placeholder="000.000.000-00" />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Origem</label>
-                        <select className="form-control" value={form.origem} onChange={(e) => set('origem', e.target.value)}>
-                            <option value="">Selecione...</option>
-                            <option value="Instagram">Instagram</option>
-                            <option value="Meta Ads">Meta Ads</option>
-                            <option value="Google">Google</option>
-                            <option value="Indicação">Indicação</option>
-                            <option value="Site">Site</option>
-                            <option value="Outro">Outro</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Tipo Pessoa</label>
-                        <select className="form-control" value={form.tipo_pessoa} onChange={(e) => set('tipo_pessoa', e.target.value)}>
-                            <option value="fisica">Pessoa Física</option>
-                            <option value="juridica">Pessoa Jurídica</option>
-                        </select>
-                    </div>
-                </div>
-            </Modal>
+                editing={editing}
+            />
         </>
     );
 }

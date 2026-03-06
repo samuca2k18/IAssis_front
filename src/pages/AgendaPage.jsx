@@ -1,73 +1,49 @@
-import { useState, useEffect } from 'react';
-import { agendaApi, clientesApi } from '../api';
-import Modal from '../components/Modal';
+import { useState } from 'react';
+import { useClientes } from '../hooks/useClientes';
+import { useAgenda, useConcluirEvento, useDeleteEvento } from '../hooks/useAgendaDashboard';
+import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import EventoFormModal from './agenda/EventoFormModal';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Calendar as CalendarIcon, Package, Music, Wrench, Piano, PhoneCall, MapPin, CheckCircle2, Trash2, Plus, User } from 'lucide-react';
 
 const TIPO_BADGE = {
-    entrega: { label: '📦 Entrega', cls: 'badge-info' },
-    evento: { label: '🎵 Evento', cls: 'badge-purple' },
-    manutencao: { label: '🔧 Manutenção', cls: 'badge-warning' },
-    afinacao: { label: '🎹 Afinação', cls: 'badge-accent' },
-    followup: { label: '📞 Follow-up', cls: 'badge-success' },
-    outro: { label: '📌 Outro', cls: 'badge-neutral' },
+    entrega: { label: 'Entrega', variant: 'info', icon: <Package className="h-3.5 w-3.5" /> },
+    evento: { label: 'Evento', variant: 'purple', icon: <Music className="h-3.5 w-3.5" /> },
+    manutencao: { label: 'Manutenção', variant: 'warning', icon: <Wrench className="h-3.5 w-3.5" /> },
+    afinacao: { label: 'Afinação', variant: 'accent', icon: <Piano className="h-3.5 w-3.5" /> },
+    followup: { label: 'Follow-up', variant: 'success', icon: <PhoneCall className="h-3.5 w-3.5" /> },
+    outro: { label: 'Outro', variant: 'secondary', icon: <MapPin className="h-3.5 w-3.5" /> },
 };
 
 const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 
-const EMPTY = { titulo: '', descricao: '', data_hora: '', tipo: 'outro', cliente_id: '' };
-
 export default function AgendaPage() {
-    const [eventos, setEventos] = useState([]);
-    const [clientes, setClientes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [modal, setModal] = useState(false);
-    const [form, setForm] = useState(EMPTY);
     const [filterPendentes, setFilterPendentes] = useState(false);
     const [filterTipo, setFilterTipo] = useState('');
 
-    const load = () => {
-        setLoading(true);
-        Promise.all([
-            agendaApi.listar({ apenas_pendentes: filterPendentes || undefined, tipo: filterTipo || undefined }),
-            clientesApi.listar(),
-        ]).then(([e, c]) => { setEventos(e); setClientes(c); }).finally(() => setLoading(false));
+    const { data: clientes = [] } = useClientes();
+    const { data: eventos = [], isLoading: loading } = useAgenda({
+        apenas_pendentes: filterPendentes || undefined,
+        tipo: filterTipo || undefined
+    });
+
+    const concluirMutation = useConcluirEvento();
+    const deleteMutation = useDeleteEvento();
+
+    const [modal, setModal] = useState(false);
+
+    const openNew = () => setModal(true);
+
+    const concluir = (id) => {
+        concluirMutation.mutate(id);
     };
 
-    useEffect(load, [filterPendentes, filterTipo]);
-
-    const openNew = () => { setForm(EMPTY); setModal(true); };
-
-    const save = async () => {
-        if (!form.titulo.trim()) return alert('Título é obrigatório');
-        if (!form.data_hora) return alert('Data e hora são obrigatórias');
-        const data = { ...form };
-        // Garantir formato ISO completo (datetime-local não inclui segundos)
-        if (data.data_hora && data.data_hora.length === 16) {
-            data.data_hora = data.data_hora + ':00';
-        }
-        if (!data.descricao) delete data.descricao;
-        if (data.cliente_id) data.cliente_id = parseInt(data.cliente_id);
-        else delete data.cliente_id;
-        try {
-            await agendaApi.criar(data);
-            setModal(false);
-            load();
-        } catch (e) {
-            alert('Erro: ' + e.message);
-        }
-    };
-
-    const concluir = async (id) => {
-        await agendaApi.concluir(id);
-        load();
-    };
-
-    const remove = async (id) => {
+    const remove = (id) => {
         if (!confirm('Excluir este evento?')) return;
-        await agendaApi.deletar(id);
-        load();
+        deleteMutation.mutate(id);
     };
-
-    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
     const getClienteNome = (id) => {
         if (!id) return null;
@@ -76,22 +52,33 @@ export default function AgendaPage() {
 
     return (
         <>
-            <div className="page-header">
-                <div className="page-header-row">
-                    <div>
-                        <h2>Agenda</h2>
-                        <p>Eventos e compromissos</p>
-                    </div>
-                    <button className="btn btn-primary" onClick={openNew}>+ Novo Evento</button>
-                </div>
-            </div>
-            <div className="page-content">
-                <div className="filters-bar">
-                    <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                        <input type="checkbox" checked={filterPendentes} onChange={(e) => setFilterPendentes(e.target.checked)} />
+            <PageHeader
+                title="Agenda"
+                description="Eventos e compromissos"
+                action={
+                    <Button onClick={openNew} className="gap-2">
+                        <Plus className="h-4 w-4" /> Novo Evento
+                    </Button>
+                }
+            />
+
+            <div className="px-8 pb-8">
+                <div className="flex items-center gap-4 mb-6 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+                        <input
+                            type="checkbox"
+                            className="rounded border-input bg-background text-primary shadow-sm focus:ring-primary focus:ring-offset-background h-4 w-4"
+                            checked={filterPendentes}
+                            onChange={(e) => setFilterPendentes(e.target.checked)}
+                        />
                         Apenas pendentes
                     </label>
-                    <select className="form-control" value={filterTipo} onChange={(e) => setFilterTipo(e.target.value)}>
+
+                    <select
+                        className="flex h-10 w-48 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={filterTipo}
+                        onChange={(e) => setFilterTipo(e.target.value)}
+                    >
                         <option value="">Todos os tipos</option>
                         <option value="entrega">📦 Entrega</option>
                         <option value="evento">🎵 Evento</option>
@@ -103,39 +90,63 @@ export default function AgendaPage() {
                 </div>
 
                 {loading ? (
-                    <div className="loading-spinner" />
-                ) : eventos.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="icon">📅</div>
-                        <h3>Nenhum evento encontrado</h3>
-                        <p>Crie um novo evento ou ajuste os filtros</p>
+                    <div className="flex items-center justify-center p-24">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
                     </div>
+                ) : eventos.length === 0 ? (
+                    <EmptyState
+                        icon={<CalendarIcon className="h-16 w-16 text-muted-foreground opacity-50" />}
+                        title="Nenhum evento encontrado"
+                        description="Crie um novo evento ou ajuste os filtros"
+                    />
                 ) : (
-                    <div className="event-list">
+                    <div className="flex flex-col gap-3">
                         {eventos.map((ev) => {
                             const dt = new Date(ev.data_hora);
                             const badge = TIPO_BADGE[ev.tipo] || TIPO_BADGE.outro;
                             const clienteNome = getClienteNome(ev.cliente_id);
+
                             return (
-                                <div className={`event-item${ev.concluido ? ' done' : ''}`} key={ev.id}>
-                                    <div className="event-date">
-                                        <div className="day">{dt.getDate()}</div>
-                                        <div className="month">{MESES[dt.getMonth()]}</div>
+                                <div
+                                    className={`flex items-center gap-4 p-4 rounded-lg border border-border bg-card transition-colors hover:border-primary/50 ${ev.concluido ? 'opacity-50 grayscale-[0.5]' : ''}`}
+                                    key={ev.id}
+                                >
+                                    <div className="flex flex-col items-center justify-center min-w-[60px] text-center border-r border-border pr-4">
+                                        <div className="text-2xl font-black leading-none text-primary mb-1">{dt.getDate()}</div>
+                                        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{MESES[dt.getMonth()]}</div>
                                     </div>
-                                    <div className="event-info">
-                                        <h4>{ev.titulo}</h4>
-                                        <p>
-                                            <span className={`badge ${badge.cls}`} style={{ marginRight: 8 }}>{badge.label}</span>
-                                            {clienteNome && <span style={{ marginRight: 8 }}>👤 {clienteNome}</span>}
-                                            {dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                        </p>
-                                        {ev.descricao && <p style={{ marginTop: 4 }}>{ev.descricao}</p>}
+
+                                    <div className="flex-1 min-w-0">
+                                        <h4 className="text-base font-semibold mb-1 truncate">{ev.titulo}</h4>
+                                        <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                                            <Badge variant={badge.variant === 'accent' || badge.variant === 'purple' || badge.variant === 'info' ? 'outline' : badge.variant} className={`gap-1 -ml-1 ${badge.variant === 'accent' ? 'bg-primary/10 text-primary border-primary/20' : badge.variant === 'info' ? 'bg-blue-500/10 text-blue-500 border-blue-500/20' : badge.variant === 'purple' ? 'bg-purple-500/10 text-purple-500 border-purple-500/20' : ''}`}>
+                                                {badge.icon}
+                                                {badge.label}
+                                            </Badge>
+
+                                            {clienteNome && (
+                                                <span className="flex items-center gap-1 font-medium">
+                                                    <User className="h-3.5 w-3.5" />
+                                                    {clienteNome}
+                                                </span>
+                                            )}
+
+                                            <span className="flex items-center gap-1 font-mono text-xs">
+                                                {dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                            </span>
+                                        </div>
+                                        {ev.descricao && <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{ev.descricao}</p>}
                                     </div>
-                                    <div className="event-actions">
+
+                                    <div className="flex items-center gap-2 pl-4">
                                         {!ev.concluido && (
-                                            <button className="btn btn-success btn-sm" onClick={() => concluir(ev.id)}>✅ Concluir</button>
+                                            <Button variant="default" size="sm" onClick={() => concluir(ev.id)} className="gap-1.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                                <CheckCircle2 className="h-4 w-4" /> Concluir
+                                            </Button>
                                         )}
-                                        <button className="btn btn-danger btn-sm btn-icon" onClick={() => remove(ev.id)}>🗑️</button>
+                                        <Button variant="ghost" size="sm" onClick={() => remove(ev.id)} className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
                                 </div>
                             );
@@ -144,45 +155,11 @@ export default function AgendaPage() {
                 )}
             </div>
 
-            <Modal
+            <EventoFormModal
                 open={modal}
                 onClose={() => setModal(false)}
-                title="Novo Evento"
-                footer={<><button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button><button className="btn btn-primary" onClick={save}>Salvar</button></>}
-            >
-                <div className="form-group">
-                    <label>Título *</label>
-                    <input className="form-control" value={form.titulo} onChange={(e) => set('titulo', e.target.value)} placeholder="Afinação Piano - João" />
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Data e Hora *</label>
-                        <input className="form-control" type="datetime-local" value={form.data_hora} onChange={(e) => set('data_hora', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label>Tipo</label>
-                        <select className="form-control" value={form.tipo} onChange={(e) => set('tipo', e.target.value)}>
-                            <option value="entrega">📦 Entrega</option>
-                            <option value="evento">🎵 Evento</option>
-                            <option value="manutencao">🔧 Manutenção</option>
-                            <option value="afinacao">🎹 Afinação</option>
-                            <option value="followup">📞 Follow-up</option>
-                            <option value="outro">📌 Outro</option>
-                        </select>
-                    </div>
-                </div>
-                <div className="form-group">
-                    <label>Cliente (opcional)</label>
-                    <select className="form-control" value={form.cliente_id} onChange={(e) => set('cliente_id', e.target.value)}>
-                        <option value="">Nenhum</option>
-                        {clientes.map((c) => <option key={c.id} value={c.id}>{c.nome}</option>)}
-                    </select>
-                </div>
-                <div className="form-group">
-                    <label>Descrição</label>
-                    <textarea className="form-control" value={form.descricao} onChange={(e) => set('descricao', e.target.value)} placeholder="Detalhes do evento" />
-                </div>
-            </Modal>
+                clientes={clientes}
+            />
         </>
     );
 }

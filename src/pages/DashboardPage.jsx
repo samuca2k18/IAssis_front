@@ -1,37 +1,37 @@
-import { useState, useEffect } from 'react';
-import { dashboardApi } from '../api';
+import { useDashboard } from '../hooks/useAgendaDashboard';
+import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Users, Target, Piano, DollarSign, Calendar, AlertTriangle } from 'lucide-react';
 
 const STATUS_MAP = {
-    novo: { label: 'Novo', color: 'badge-warning', icon: '🟡' },
-    orcamento_enviado: { label: 'Orçamento Enviado', color: 'badge-info', icon: '🔵' },
-    negociacao: { label: 'Negociação', color: 'badge-purple', icon: '🟠' },
-    fechado: { label: 'Fechado', color: 'badge-success', icon: '🟢' },
-    perdido: { label: 'Perdido', color: 'badge-danger', icon: '🔴' },
+    novo: { label: 'Novo', variant: 'warning', icon: '🟡' },
+    orcamento_enviado: { label: 'Orçamento Enviado', variant: 'info', icon: '🔵' },
+    negociacao: { label: 'Negociação', variant: 'default', icon: '🟠' },
+    fechado: { label: 'Fechado', variant: 'success', icon: '🟢' },
+    perdido: { label: 'Perdido', variant: 'destructive', icon: '🔴' },
 };
 
 export default function DashboardPage() {
-    const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const { data, isLoading: loading } = useDashboard();
 
-    useEffect(() => {
-        dashboardApi.get()
-            .then(setData)
-            .catch(() => setData(null))
-            .finally(() => setLoading(false));
-    }, []);
-
-    if (loading) return <div className="loading-spinner" />;
+    if (loading) return (
+        <div className="flex items-center justify-center p-24">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
+        </div>
+    );
 
     if (!data) {
         return (
             <>
-                <div className="page-header"><h2>Dashboard</h2><p>Visão geral do CRM</p></div>
-                <div className="page-content">
-                    <div className="empty-state">
-                        <div className="icon">⚠️</div>
-                        <h3>Não foi possível carregar o dashboard</h3>
-                        <p>Verifique se o backend está rodando em http://localhost:8000</p>
-                    </div>
+                <PageHeader title="Dashboard" description="Visão geral do CRM" />
+                <div className="px-8 pb-8">
+                    <EmptyState
+                        icon={<AlertTriangle className="h-16 w-16 text-muted-foreground opacity-50" />}
+                        title="Não foi possível carregar o dashboard"
+                        description="Verifique se o backend está rodando em http://localhost:8000"
+                    />
                 </div>
             </>
         );
@@ -42,91 +42,137 @@ export default function DashboardPage() {
 
     return (
         <>
-            <div className="page-header">
-                <h2>Dashboard</h2>
-                <p>Visão geral do CRM da Assis Pianos</p>
-            </div>
-            <div className="page-content">
-                <div className="metric-grid">
-                    <div className="metric-card">
-                        <div className="metric-icon" style={{ background: 'var(--accent-light)', color: 'var(--accent)' }}>👤</div>
-                        <div className="metric-info">
-                            <h3>{data.total_clientes}</h3>
-                            <span>Clientes</span>
-                        </div>
-                    </div>
-                    <div className="metric-card">
-                        <div className="metric-icon" style={{ background: 'var(--info-bg)', color: 'var(--info)' }}>🎯</div>
-                        <div className="metric-info">
-                            <h3>{data.total_leads}</h3>
-                            <span>Leads</span>
-                        </div>
-                    </div>
-                    <div className="metric-card">
-                        <div className="metric-icon" style={{ background: 'var(--purple-bg)', color: 'var(--purple)' }}>🎹</div>
-                        <div className="metric-info">
-                            <h3>{data.total_negocios}</h3>
-                            <span>Negócios</span>
-                        </div>
-                    </div>
-                    <div className="metric-card">
-                        <div className="metric-icon" style={{ background: 'var(--success-bg)', color: 'var(--success)' }}>💰</div>
-                        <div className="metric-info">
-                            <h3>R$ {(data.receita_fechada || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</h3>
-                            <span>Receita Fechada</span>
-                        </div>
-                    </div>
+            <PageHeader title="Dashboard" description="Visão geral do CRM da Assis Pianos" />
+
+            <div className="px-8 pb-8 space-y-6">
+
+                {/* Metrics Grid */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardContent className="p-6 flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                <Users className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">{data.total_clientes}</h3>
+                                <p className="text-sm font-medium text-muted-foreground">Clientes</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-500/10 text-blue-500">
+                                <Target className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">{data.total_leads}</h3>
+                                <p className="text-sm font-medium text-muted-foreground">Leads</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-500/10 text-purple-500">
+                                <Piano className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">{data.total_negocios}</h3>
+                                <p className="text-sm font-medium text-muted-foreground">Negócios</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-6 flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-500">
+                                <DollarSign className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">
+                                    <span className="text-sm font-normal text-muted-foreground mr-1">R$</span>
+                                    {(data.receita_fechada || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </h3>
+                                <p className="text-sm font-medium text-muted-foreground">Receita Fechada</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                <div className="stats-grid">
-                    <div className="card">
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 16 }}>Funil de Vendas</h3>
-                        <div className="stat-bar-list">
-                            {Object.entries(data.por_status || {}).map(([status, count]) => (
-                                <div className="stat-bar-item" key={status}>
-                                    <span className="stat-bar-label">
-                                        {STATUS_MAP[status]?.icon || '⚪'} {STATUS_MAP[status]?.label || status}
-                                    </span>
-                                    <div className="stat-bar-track">
-                                        <div className="stat-bar-fill" style={{ width: `${(count / maxStatus) * 100}%` }} />
+                {/* Charts Grid */}
+                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-bold">Funil de Vendas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {Object.entries(data.por_status || {}).map(([status, count]) => (
+                                    <div className="flex items-center gap-4" key={status}>
+                                        <div className="w-32 text-sm font-medium text-muted-foreground flex items-center gap-2">
+                                            <span>{STATUS_MAP[status]?.icon || '⚪'}</span>
+                                            {STATUS_MAP[status]?.label || status}
+                                        </div>
+                                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-primary to-[#e8c94c] transition-all duration-500 rounded-full"
+                                                style={{ width: `${(count / maxStatus) * 100}%` }}
+                                            />
+                                        </div>
+                                        <div className="w-8 text-right text-sm font-bold">{count}</div>
                                     </div>
-                                    <span className="stat-bar-value">{count}</span>
-                                </div>
-                            ))}
-                            {Object.keys(data.por_status || {}).length === 0 && (
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum negócio ainda</p>
-                            )}
-                        </div>
-                    </div>
+                                ))}
+                                {Object.keys(data.por_status || {}).length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum negócio ainda</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
 
-                    <div className="card">
-                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 16 }}>Leads por Origem</h3>
-                        <div className="stat-bar-list">
-                            {Object.entries(data.leads_por_origem || {}).map(([origem, count]) => (
-                                <div className="stat-bar-item" key={origem}>
-                                    <span className="stat-bar-label">{origem}</span>
-                                    <div className="stat-bar-track">
-                                        <div className="stat-bar-fill" style={{ width: `${(count / maxOrigem) * 100}%` }} />
+                    <Card>
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base font-bold">Leads por Origem</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                {Object.entries(data.leads_por_origem || {}).map(([origem, count]) => (
+                                    <div className="flex items-center gap-4" key={origem}>
+                                        <div className="w-32 text-sm font-medium text-muted-foreground truncate" title={origem}>
+                                            {origem}
+                                        </div>
+                                        <div className="flex-1 h-2.5 rounded-full bg-secondary overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-blue-400 to-blue-600 transition-all duration-500 rounded-full"
+                                                style={{ width: `${(count / maxOrigem) * 100}%` }}
+                                            />
+                                        </div>
+                                        <div className="w-8 text-right text-sm font-bold">{count}</div>
                                     </div>
-                                    <span className="stat-bar-value">{count}</span>
-                                </div>
-                            ))}
-                            {Object.keys(data.leads_por_origem || {}).length === 0 && (
-                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Nenhum lead ainda</p>
-                            )}
-                        </div>
-                    </div>
+                                ))}
+                                {Object.keys(data.leads_por_origem || {}).length === 0 && (
+                                    <p className="text-sm text-muted-foreground text-center py-4">Nenhum lead ainda</p>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                <div className="metric-grid">
-                    <div className="metric-card">
-                        <div className="metric-icon" style={{ background: 'var(--warning-bg)', color: 'var(--warning)' }}>📅</div>
-                        <div className="metric-info">
-                            <h3>{data.proximos_eventos}</h3>
-                            <span>Próximos Eventos</span>
-                        </div>
-                    </div>
+                {/* Additional Metrics */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <Card>
+                        <CardContent className="p-6 flex items-center gap-4">
+                            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-500/10 text-orange-500">
+                                <Calendar className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-bold tracking-tight">{data.proximos_eventos}</h3>
+                                <p className="text-sm font-medium text-muted-foreground">Próximos Eventos</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
+
             </div>
         </>
     );

@@ -1,97 +1,75 @@
-import { useState, useEffect } from 'react';
-import { leadsApi } from '../api';
-import Modal from '../components/Modal';
+import { useState } from 'react';
+import { useLeads, useUpdateLeadStatus, useDeleteLead } from '../hooks/useLeads';
+import PageHeader from '../components/ui/PageHeader';
+import EmptyState from '../components/ui/EmptyState';
+import LeadFormModal from './leads/LeadFormModal';
+import LeadConvertModal from './leads/LeadConvertModal';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Target, RefreshCcw, Trash2, Plus } from 'lucide-react';
 
 const TEMP_BADGE = {
-    quente: { label: '🔴 Quente', cls: 'badge-danger' },
-    morno: { label: '🟡 Morno', cls: 'badge-warning' },
-    frio: { label: '🔵 Frio', cls: 'badge-info' },
+    quente: { label: 'Quente', variant: 'destructive', icon: '🔴' },
+    morno: { label: 'Morno', variant: 'warning', icon: '🟡' },
+    frio: { label: 'Frio', variant: 'info', icon: '🔵' },
 };
 
 const STATUS_BADGE = {
-    novo: { label: 'Novo', cls: 'badge-neutral' },
-    contatado: { label: 'Contatado', cls: 'badge-info' },
-    orcamento: { label: 'Orçamento', cls: 'badge-purple' },
-    negociacao: { label: 'Negociação', cls: 'badge-warning' },
-    convertido: { label: 'Convertido', cls: 'badge-success' },
-    perdido: { label: 'Perdido', cls: 'badge-danger' },
+    novo: { label: 'Novo', variant: 'secondary' },
+    contatado: { label: 'Contatado', variant: 'info' },
+    orcamento: { label: 'Orçamento', variant: 'default' },
+    negociacao: { label: 'Negociação', variant: 'warning' },
+    convertido: { label: 'Convertido', variant: 'success' },
+    perdido: { label: 'Perdido', variant: 'destructive' },
 };
 
-const EMPTY = { nome: '', telefone: '', origem: '', campanha: '', interesse: '', orcamento_estimado: '', temperatura: 'morno', observacoes: '' };
-
 export default function LeadsPage() {
-    const [leads, setLeads] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [modal, setModal] = useState(false);
-    const [convertModal, setConvertModal] = useState(null);
-    const [form, setForm] = useState(EMPTY);
-    const [convertForm, setConvertForm] = useState({ nome: '', telefone: '', cidade: '', cpf_cnpj: '', origem: '' });
     const [filterStatus, setFilterStatus] = useState('');
     const [filterTemp, setFilterTemp] = useState('');
 
-    const load = () => {
-        setLoading(true);
-        leadsApi.listar({ status: filterStatus || undefined, temperatura: filterTemp || undefined })
-            .then(setLeads).finally(() => setLoading(false));
+    const { data: leads = [], isLoading: loading } = useLeads({
+        status: filterStatus || undefined,
+        temperatura: filterTemp || undefined
+    });
+    const updateStatusMutation = useUpdateLeadStatus();
+    const deleteMutation = useDeleteLead();
+
+    const [modal, setModal] = useState(false);
+    const [convertModal, setConvertModal] = useState(null);
+
+    const openNew = () => setModal(true);
+
+    const updateStatus = (id, status, temperatura) => {
+        updateStatusMutation.mutate({ id, data: { status, temperatura } });
     };
 
-    useEffect(load, [filterStatus, filterTemp]);
+    const openConvert = (lead) => setConvertModal(lead);
 
-    const openNew = () => { setForm(EMPTY); setModal(true); };
-
-    const save = async () => {
-        const data = { ...form };
-        if (data.orcamento_estimado) data.orcamento_estimado = parseFloat(data.orcamento_estimado);
-        else delete data.orcamento_estimado;
-        if (!data.telefone) delete data.telefone;
-        if (!data.origem) delete data.origem;
-        if (!data.campanha) delete data.campanha;
-        if (!data.interesse) delete data.interesse;
-        if (!data.observacoes) delete data.observacoes;
-        await leadsApi.criar(data);
-        setModal(false);
-        load();
-    };
-
-    const updateStatus = async (id, status, temperatura) => {
-        await leadsApi.atualizarStatus(id, { status, temperatura });
-        load();
-    };
-
-    const openConvert = (lead) => {
-        setConvertModal(lead);
-        setConvertForm({ nome: lead.nome, telefone: lead.telefone || '', cidade: '', cpf_cnpj: '', origem: lead.origem || '' });
-    };
-
-    const doConvert = async () => {
-        await leadsApi.converter(convertModal.id, convertForm);
-        setConvertModal(null);
-        load();
-    };
-
-    const remove = async (id) => {
+    const remove = (id) => {
         if (!confirm('Excluir este lead?')) return;
-        await leadsApi.deletar(id);
-        load();
+        deleteMutation.mutate(id);
     };
-
-    const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-    const setC = (k, v) => setConvertForm((f) => ({ ...f, [k]: v }));
 
     return (
         <>
-            <div className="page-header">
-                <div className="page-header-row">
-                    <div>
-                        <h2>Leads</h2>
-                        <p>Funil de marketing</p>
-                    </div>
-                    <button className="btn btn-primary" onClick={openNew}>+ Novo Lead</button>
-                </div>
-            </div>
-            <div className="page-content">
-                <div className="filters-bar">
-                    <select className="form-control" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+            <PageHeader
+                title="Leads"
+                description="Funil de marketing"
+                action={
+                    <Button onClick={openNew} className="gap-2">
+                        <Plus className="h-4 w-4" /> Novo Lead
+                    </Button>
+                }
+            />
+
+            <div className="px-8 pb-8">
+                <div className="flex items-center gap-3 mb-6 flex-wrap">
+                    <select
+                        className="flex h-10 w-48 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                    >
                         <option value="">Todos os status</option>
                         <option value="novo">Novo</option>
                         <option value="contatado">Contatado</option>
@@ -100,7 +78,11 @@ export default function LeadsPage() {
                         <option value="convertido">Convertido</option>
                         <option value="perdido">Perdido</option>
                     </select>
-                    <select className="form-control" value={filterTemp} onChange={(e) => setFilterTemp(e.target.value)}>
+                    <select
+                        className="flex h-10 w-48 items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={filterTemp}
+                        onChange={(e) => setFilterTemp(e.target.value)}
+                    >
                         <option value="">Todas temperaturas</option>
                         <option value="quente">🔴 Quente</option>
                         <option value="morno">🟡 Morno</option>
@@ -109,41 +91,51 @@ export default function LeadsPage() {
                 </div>
 
                 {loading ? (
-                    <div className="loading-spinner" />
-                ) : leads.length === 0 ? (
-                    <div className="empty-state">
-                        <div className="icon">🎯</div>
-                        <h3>Nenhum lead encontrado</h3>
-                        <p>Crie um novo lead ou ajuste os filtros</p>
+                    <div className="flex items-center justify-center p-24">
+                        <div className="h-8 w-8 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
                     </div>
+                ) : leads.length === 0 ? (
+                    <EmptyState
+                        icon={<Target className="h-16 w-16 text-muted-foreground opacity-50" />}
+                        title="Nenhum lead encontrado"
+                        description="Crie um novo lead ou ajuste os filtros"
+                    />
                 ) : (
-                    <div className="table-container">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Nome</th>
-                                    <th>Telefone</th>
-                                    <th>Origem</th>
-                                    <th>Interesse</th>
-                                    <th>Temperatura</th>
-                                    <th>Status</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                    <div className="rounded-md border border-border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead>Nome</TableHead>
+                                    <TableHead>Telefone</TableHead>
+                                    <TableHead>Origem</TableHead>
+                                    <TableHead>Interesse</TableHead>
+                                    <TableHead>Temperatura</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Ações</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {leads.map((l) => (
-                                    <tr key={l.id}>
-                                        <td style={{ fontWeight: 600 }}>{l.nome}</td>
-                                        <td>{l.telefone || '—'}</td>
-                                        <td>{l.origem || '—'}</td>
-                                        <td>{l.interesse || '—'}</td>
-                                        <td><span className={`badge ${TEMP_BADGE[l.temperatura]?.cls || 'badge-neutral'}`}>{TEMP_BADGE[l.temperatura]?.label || l.temperatura}</span></td>
-                                        <td><span className={`badge ${STATUS_BADGE[l.status]?.cls || 'badge-neutral'}`}>{STATUS_BADGE[l.status]?.label || l.status}</span></td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    <TableRow key={l.id}>
+                                        <TableCell className="font-medium">{l.nome}</TableCell>
+                                        <TableCell>{l.telefone || '—'}</TableCell>
+                                        <TableCell>{l.origem || '—'}</TableCell>
+                                        <TableCell>{l.interesse || '—'}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={TEMP_BADGE[l.temperatura]?.variant || 'outline'} className="gap-1.5 flex w-fit">
+                                                <span>{TEMP_BADGE[l.temperatura]?.icon}</span>
+                                                {TEMP_BADGE[l.temperatura]?.label || l.temperatura}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={STATUS_BADGE[l.status]?.variant || 'outline'}>
+                                                {STATUS_BADGE[l.status]?.label || l.status}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2 flex-wrap min-w-[320px]">
                                                 <select
-                                                    className="form-control"
-                                                    style={{ width: 120, padding: '4px 8px', fontSize: '0.75rem' }}
+                                                    className="flex h-8 w-[140px] items-center justify-between rounded-md border border-input bg-background/50 px-3 py-1 text-xs ring-offset-background focus:outline-none focus:ring-1 focus:ring-ring"
                                                     value={l.status}
                                                     onChange={(e) => updateStatus(l.id, e.target.value)}
                                                 >
@@ -155,120 +147,25 @@ export default function LeadsPage() {
                                                     <option value="perdido">Perdido</option>
                                                 </select>
                                                 {l.status !== 'convertido' && (
-                                                    <button className="btn btn-success btn-sm" onClick={() => openConvert(l)}>🔄 Converter</button>
+                                                    <Button variant="default" size="sm" onClick={() => openConvert(l)} className="h-8 gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+                                                        <RefreshCcw className="h-3.5 w-3.5" /> Converter
+                                                    </Button>
                                                 )}
-                                                <button className="btn btn-danger btn-sm" onClick={() => remove(l.id)}>🗑️</button>
+                                                <Button variant="destructive" size="sm" onClick={() => remove(l.id)} className="h-8 px-2">
+                                                    <Trash2 className="h-3.5 w-3.5" />
+                                                </Button>
                                             </div>
-                                        </td>
-                                    </tr>
+                                        </TableCell>
+                                    </TableRow>
                                 ))}
-                            </tbody>
-                        </table>
+                            </TableBody>
+                        </Table>
                     </div>
                 )}
             </div>
 
-            {/* Modal Novo Lead */}
-            <Modal
-                open={modal}
-                onClose={() => setModal(false)}
-                title="Novo Lead"
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancelar</button>
-                        <button className="btn btn-primary" onClick={save}>Salvar</button>
-                    </>
-                }
-            >
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Nome *</label>
-                        <input className="form-control" value={form.nome} onChange={(e) => set('nome', e.target.value)} placeholder="Nome do lead" />
-                    </div>
-                    <div className="form-group">
-                        <label>Telefone</label>
-                        <input className="form-control" value={form.telefone} onChange={(e) => set('telefone', e.target.value)} placeholder="(85) 9xxxx-xxxx" />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Origem</label>
-                        <select className="form-control" value={form.origem} onChange={(e) => set('origem', e.target.value)}>
-                            <option value="">Selecione...</option>
-                            <option value="Instagram">Instagram</option>
-                            <option value="Meta Ads">Meta Ads</option>
-                            <option value="Google">Google</option>
-                            <option value="Indicação">Indicação</option>
-                            <option value="Site">Site</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Interesse</label>
-                        <select className="form-control" value={form.interesse} onChange={(e) => set('interesse', e.target.value)}>
-                            <option value="">Selecione...</option>
-                            <option value="Compra">Compra</option>
-                            <option value="Locação">Locação</option>
-                            <option value="Manutenção">Manutenção</option>
-                        </select>
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Temperatura</label>
-                        <select className="form-control" value={form.temperatura} onChange={(e) => set('temperatura', e.target.value)}>
-                            <option value="quente">🔴 Quente</option>
-                            <option value="morno">🟡 Morno</option>
-                            <option value="frio">🔵 Frio</option>
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label>Orçamento Estimado</label>
-                        <input className="form-control" type="number" value={form.orcamento_estimado} onChange={(e) => set('orcamento_estimado', e.target.value)} placeholder="R$" />
-                    </div>
-                </div>
-                <div className="form-group">
-                    <label>Campanha</label>
-                    <input className="form-control" value={form.campanha} onChange={(e) => set('campanha', e.target.value)} placeholder="Nome da campanha" />
-                </div>
-                <div className="form-group">
-                    <label>Observações</label>
-                    <textarea className="form-control" value={form.observacoes} onChange={(e) => set('observacoes', e.target.value)} placeholder="Notas adicionais" />
-                </div>
-            </Modal>
-
-            {/* Modal Converter Lead em Cliente */}
-            <Modal
-                open={!!convertModal}
-                onClose={() => setConvertModal(null)}
-                title="Converter Lead em Cliente"
-                footer={
-                    <>
-                        <button className="btn btn-secondary" onClick={() => setConvertModal(null)}>Cancelar</button>
-                        <button className="btn btn-success" onClick={doConvert}>Converter</button>
-                    </>
-                }
-            >
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Nome *</label>
-                        <input className="form-control" value={convertForm.nome} onChange={(e) => setC('nome', e.target.value)} />
-                    </div>
-                    <div className="form-group">
-                        <label>Telefone *</label>
-                        <input className="form-control" value={convertForm.telefone} onChange={(e) => setC('telefone', e.target.value)} />
-                    </div>
-                </div>
-                <div className="form-row">
-                    <div className="form-group">
-                        <label>Cidade *</label>
-                        <input className="form-control" value={convertForm.cidade} onChange={(e) => setC('cidade', e.target.value)} placeholder="Fortaleza/CE" />
-                    </div>
-                    <div className="form-group">
-                        <label>CPF/CNPJ</label>
-                        <input className="form-control" value={convertForm.cpf_cnpj} onChange={(e) => setC('cpf_cnpj', e.target.value)} />
-                    </div>
-                </div>
-            </Modal>
+            <LeadFormModal open={modal} onClose={() => setModal(false)} />
+            <LeadConvertModal lead={convertModal} onClose={() => setConvertModal(null)} />
         </>
     );
 }
