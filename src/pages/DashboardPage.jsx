@@ -30,7 +30,7 @@ export default function DashboardPage() {
                     <EmptyState
                         icon={<AlertTriangle className="h-16 w-16 text-muted-foreground opacity-50" />}
                         title="Não foi possível carregar o dashboard"
-                        description="Verifique se o backend está rodando em http://localhost:8000"
+                        description={`Verifique se o backend remoto está rodando em ${import.meta.env.VITE_API_URL || 'http://147.15.19.110:8000'}`}
                     />
                 </div>
             </>

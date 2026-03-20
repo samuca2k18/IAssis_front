@@ -1,17 +1,137 @@
-# React + Vite
+# IAssis Pianos — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> Painel de controle web da **Assis Pianos**  
+> Tech: **React · Vite · Tailwind CSS · shadcn/ui**
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Páginas
 
-## React Compiler
+| Página | Rota | Descrição |
+|---|---|---|
+| Dashboard | `/` | KPIs, receita, pipeline e agenda do dia |
+| Clientes | `/clientes` | Cadastro e listagem de clientes |
+| Leads | `/leads` | Pipeline de marketing com filtros |
+| Negócios | `/negocios` | Funil de vendas |
+| Documentos | `/documentos` | Gerar e baixar PDFs (orçamento, recibo, contrato) |
+| Agenda | `/agenda` | Agendamentos de serviços |
+| Campanhas | `/campanhas` | Campanhas de marketing |
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## Rodar localmente
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
-# IAssis_front
+### 1. Instalar dependências
+```bash
+npm install
+```
+
+### 2. Configurar `.env`
+```bash
+# Crie um arquivo .env na raiz com:
+VITE_API_URL=http://IP_DO_BACKEND:8000
+```
+
+> Por padrão, sem `.env`, o frontend aponta para `http://147.15.19.110:8000`.
+
+### 3. Rodar em desenvolvimento
+```bash
+npm run dev
+```
+
+Acesse: **http://localhost:5173**
+
+---
+
+## Estrutura do projeto
+
+```
+src/
+├── api.js              # Todas as chamadas HTTP para o backend
+├── App.jsx             # Rotas principais (React Router)
+├── index.css           # Design system global (CSS variables + Tailwind)
+├── pages/
+│   ├── DashboardPage.jsx
+│   ├── ClientesPage.jsx
+│   ├── LeadsPage.jsx
+│   ├── NegociosPage.jsx
+│   ├── DocumentosPage.jsx
+│   ├── AgendaPage.jsx
+│   └── CampanhasPage.jsx
+└── components/         # Componentes reutilizáveis (modais, tabelas, etc.)
+```
+
+---
+
+## Conexão com o Backend
+
+Todas as chamadas ao backend estão centralizadas em `src/api.js`:
+
+```js
+// Configurar a URL base
+const API_BASE = import.meta.env.VITE_API_URL || 'http://147.15.19.110:8000';
+```
+
+### APIs disponíveis
+
+| Módulo | Objeto exportado |
+|---|---|
+| Clientes | `clientesApi` |
+| Leads | `leadsApi` |
+| Negócios | `negociosApi` |
+| Documentos | `documentosApi` |
+| Campanhas | `campanhasApi` |
+| Agenda | `agendaApi` |
+| Dashboard | `dashboardApi` |
+
+**Exemplo de uso:**
+```js
+import { clientesApi } from '../api';
+
+// Listar todos
+const clientes = await clientesApi.listar();
+
+// Criar
+await clientesApi.criar({
+  nome: 'João Silva',
+  telefone: '85999990000',
+  cidade: 'Fortaleza',
+});
+```
+
+---
+
+## Download de PDFs
+
+```js
+import { documentosApi } from '../api';
+
+// Gerar orçamento (retorna o documento criado)
+const doc = await documentosApi.gerarOrcamento({ negocio_id: 1, ... });
+
+// Obter URL do PDF para abrir/baixar
+const pdfUrl = documentosApi.downloadOrcamentoPdf(doc.id);
+window.open(pdfUrl);
+```
+
+---
+
+## Build de produção
+
+```bash
+npm run build
+# Arquivos gerados em /dist
+```
+
+O projeto está configurado com `vercel.json` para deploy na **Vercel**:
+```bash
+vercel --prod
+```
+
+---
+
+## Variáveis de Ambiente
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `VITE_API_URL` | URL base do backend FastAPI | `http://147.15.19.110:8000` |

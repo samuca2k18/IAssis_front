@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://147.15.19.110:8000';
 
 /**
  * Realiza uma requisição HTTP para a API.
